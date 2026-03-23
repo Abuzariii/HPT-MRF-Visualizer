@@ -1,4 +1,5 @@
-import { dbAll } from "@/lib/db";
+// import { dbAll } from "@/lib/db";
+import { queryDb } from "@/lib/db";
 import KpiCards from "@/components/KpiCards";
 import ProcedureChart from "@/components/ProcedureChart";
 import PriceComparisonTable from "@/components/PriceComparisonTable";
@@ -16,7 +17,7 @@ export default async function TransparencyPlatform() {
   let settingsStats: SettingStat[] = [];
 
   try {
-    const summaryData = await dbAll(`
+    const summaryData = await queryDb(`
       SELECT 
         COUNT(*) as total_charges,
         COUNT(DISTINCT hospital_id) as distinct_hospitals,
@@ -30,7 +31,7 @@ export default async function TransparencyPlatform() {
       avg_gross: Number(summaryData[0].avg_gross),
     };
 
-    const settingsRaw = await dbAll(`
+    const settingsRaw = await queryDb(`
       SELECT LOWER(setting) as setting, CAST(COUNT(*) AS INTEGER) as count, AVG(gross_charge) as avg_charge
       FROM hospital_charges WHERE setting IS NOT NULL AND gross_charge IS NOT NULL
       GROUP BY LOWER(setting) ORDER BY count DESC LIMIT 2
@@ -42,7 +43,7 @@ export default async function TransparencyPlatform() {
       avg_charge: Number(r.avg_charge),
     }));
 
-    topProcedures = await dbAll(`
+    topProcedures = await queryDb(`
       SELECT description, AVG(gross_charge) as avg_charge, CAST(COUNT(*) AS INTEGER) as frequency
       FROM hospital_charges WHERE description IS NOT NULL AND gross_charge IS NOT NULL
       GROUP BY description HAVING COUNT(*) > 100 ORDER BY avg_charge DESC LIMIT 10
