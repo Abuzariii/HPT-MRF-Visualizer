@@ -1,6 +1,6 @@
 // src/app/api/charges/route.ts
 import { NextResponse } from "next/server";
-import { dbAll } from "@/lib/db";
+import { queryDb } from "@/lib/db";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
     query += ` LIMIT ${limit} OFFSET ${offset}`;
 
-    const results = await dbAll(query);
+    const results = await queryDb(query);
 
     return NextResponse.json({ data: results });
   } catch (error: any) {
