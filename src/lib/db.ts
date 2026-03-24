@@ -5,14 +5,8 @@ import fs from "fs";
 import { Readable } from "stream";
 import { finished } from "stream/promises";
 
-// THE FIX: Fully stripped of DuckDB types, typed as 'any', and string split for Turbopack
-const pkgName = "duck" + "db";
-const duckdb: any = typeof window === "undefined" ? require(pkgName) : null;
-
 // Detect if we are running in Railway (production) or locally
 const IS_PROD = process.env.NODE_ENV === "production";
-
-// Use the Railway Volume in prod, use your local Windows path locally
 const DB_PATH = IS_PROD
   ? "/data/pittsburgh_standard_charge_details.duckdb"
   : path.join(
@@ -27,7 +21,8 @@ declare global {
   var __db: any | undefined;
 }
 
-// Helper to download the massive file safely without blowing up RAM
+let duckdb: any; // Lazy-loaded below
+
 async function ensureDatabaseExists() {
   if (fs.existsSync(DB_PATH)) {
     console.log(
@@ -40,7 +35,6 @@ async function ensureDatabaseExists() {
     `[DB] Database not found at ${DB_PATH}. Downloading 4.8GB from Hugging Face...`
   );
 
-  // Ensure the /data directory exists just in case
   const dir = path.dirname(DB_PATH);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -52,16 +46,17 @@ async function ensureDatabaseExists() {
     throw new Error("No response body received from Hugging Face.");
 
   const fileStream = fs.createWriteStream(DB_PATH);
-
-  // Stream the download directly to the Railway volume
   await finished(Readable.fromWeb(res.body as any).pipe(fileStream));
-
   console.log(`[DB] Download complete! Saved successfully to ${DB_PATH}`);
 }
 
-// Async initializer to guarantee the database is downloaded before queries run
 export async function getDb(): Promise<any> {
   if (global.__db) return global.__db;
+
+  // THE FIX: Require DuckDB dynamically only when the function is actually called
+  if (!duckdb) {
+    duckdb = typeof window === "undefined" ? require("duck" + "db") : null;
+  }
 
   await ensureDatabaseExists();
 
@@ -70,7 +65,6 @@ export async function getDb(): Promise<any> {
   return global.__db;
 }
 
-// Wrapper to make querying easy across your app
 export async function queryDb(query: string): Promise<any[]> {
   const database = await getDb();
   const dbAll = util.promisify(database.all.bind(database)) as (

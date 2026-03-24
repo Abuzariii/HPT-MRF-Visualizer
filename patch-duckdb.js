@@ -1,23 +1,43 @@
+// patch-duckdb.js
 const fs = require("fs");
 const path = require("path");
 
-const pkgPath = path.join(__dirname, "node_modules", "duckdb", "package.json");
+const duckdbDir = path.join(__dirname, "node_modules", "duckdb");
+const pkgPath = path.join(duckdbDir, "package.json");
 
 if (fs.existsSync(pkgPath)) {
   try {
     const pkg = JSON.parse(fs.readFileSync(pkgPath, "utf8"));
 
-    // If the binary field exists but napi_versions is missing, inject it
     if (pkg.binary && !pkg.binary.napi_versions) {
-      pkg.binary.napi_versions = [3]; // N-API version 3 is a safe fallback
+      // 1. Add napi_versions for Turbopack
+      pkg.binary.napi_versions = [3];
+
+      // 2. Add the required substitution string for node-pre-gyp
+      pkg.binary.module_path = "./lib/binding/napi-v{napi_build_version}/";
       fs.writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
-      console.log("✅ Successfully patched DuckDB package.json for Turbopack!");
+
+      // 3. Physically move the binary so the app can actually find it at runtime
+      const oldDir = path.join(duckdbDir, "lib", "binding");
+      const newDir = path.join(oldDir, "napi-v3");
+
+      if (fs.existsSync(oldDir) && !fs.existsSync(newDir)) {
+        fs.mkdirSync(newDir, { recursive: true });
+        const files = fs.readdirSync(oldDir);
+        for (const file of files) {
+          const oldPath = path.join(oldDir, file);
+          if (fs.statSync(oldPath).isFile()) {
+            fs.renameSync(oldPath, path.join(newDir, file));
+          }
+        }
+      }
+      console.log(
+        "✅ Patched DuckDB package and migrated binary successfully!"
+      );
     } else {
-      console.log("ℹ️  DuckDB already patched or napi_versions exists.");
+      console.log("ℹ️ DuckDB already patched.");
     }
   } catch (e) {
     console.error("❌ Failed to patch DuckDB:", e.message);
   }
-} else {
-  console.log("⚠️ DuckDB package.json not found. Make sure it is installed.");
 }
