@@ -5,7 +5,6 @@ import fs from "fs";
 import { Readable } from "stream";
 import { finished } from "stream/promises";
 
-// Detect if we are running in Railway (production) or locally
 const IS_PROD = process.env.NODE_ENV === "production";
 const DB_PATH = IS_PROD
   ? "/data/pittsburgh_standard_charge_details.duckdb"
@@ -21,7 +20,7 @@ declare global {
   var __db: any | undefined;
 }
 
-let duckdb: any; // Lazy-loaded below
+let duckdb: any;
 
 async function ensureDatabaseExists() {
   if (fs.existsSync(DB_PATH)) {
@@ -53,9 +52,10 @@ async function ensureDatabaseExists() {
 export async function getDb(): Promise<any> {
   if (global.__db) return global.__db;
 
-  // THE FIX: Require DuckDB dynamically only when the function is actually called
+  // THE FIX: eval() makes it completely invisible to Turbopack during the build phase.
+  // It only executes at runtime when Next.js actually starts the server.
   if (!duckdb) {
-    duckdb = typeof window === "undefined" ? require("duck" + "db") : null;
+    duckdb = typeof window === "undefined" ? eval("require('duckdb')") : null;
   }
 
   await ensureDatabaseExists();
