@@ -24,18 +24,37 @@ declare global {
 let duckdb: any;
 
 async function downloadDatabase() {
+  // 1. Ask Hugging Face exactly how big the file is supposed to be
+  console.log(`[DB] Checking expected database size from Hugging Face...`);
+  const headRes = await fetch(DOWNLOAD_URL, { method: "HEAD" });
+  const expectedSize = parseInt(
+    headRes.headers.get("content-length") || "0",
+    10
+  );
+  console.log(
+    `[DB] Expected size: ${(expectedSize / 1024 / 1024 / 1024).toFixed(2)} GB`
+  );
+
+  // 2. Check the existing file against the EXACT expected size
   if (fs.existsSync(DB_PATH)) {
     const stats = fs.statSync(DB_PATH);
-    if (stats.size > 100000000) {
+    const isValid =
+      expectedSize > 0 ? stats.size === expectedSize : stats.size > 5000000000;
+
+    if (isValid) {
       console.log(
-        `[DB] Valid database found (${(stats.size / 1024 / 1024 / 1024).toFixed(
-          2
-        )} GB). Skipping download.`
+        `[DB] Valid database found perfectly matching expected size. Skipping download.`
       );
       return;
     }
+
     console.log(
-      `[DB] Found corrupted partial database (${stats.size} bytes). Deleting and redownloading...`
+      `[DB] Found corrupted partial database (${(
+        stats.size /
+        1024 /
+        1024 /
+        1024
+      ).toFixed(2)} GB). Deleting and redownloading...`
     );
     fs.unlinkSync(DB_PATH);
   }
@@ -73,8 +92,6 @@ export async function getDb(): Promise<any> {
     global.__dbInitPromise = downloadDatabase()
       .then(() => {
         console.log(`[DB] Opening DuckDB connection...`);
-
-        // THE FIX: Wait for the C++ callback to confirm the file is fully mounted into memory
         return new Promise<void>((resolve, reject) => {
           const dbInstance = new duckdb.Database(
             DB_PATH,
