@@ -1,4 +1,3 @@
-// src/lib/db.ts
 import util from "util";
 import path from "path";
 import fs from "fs";
@@ -18,50 +17,79 @@ const DOWNLOAD_URL =
 
 declare global {
   var __db: any | undefined;
+  // This lock prevents race conditions during SSR
+  var __dbInitPromise: Promise<void> | undefined;
 }
 
 let duckdb: any;
 
-async function ensureDatabaseExists() {
+async function downloadDatabase() {
+  // 1. Check if the file exists AND is the correct size
   if (fs.existsSync(DB_PATH)) {
+    const stats = fs.statSync(DB_PATH);
+    // 4.8GB is roughly 5,153,960,755 bytes.
+    // If it's less than 100MB, it's a corrupted/aborted download from the previous crash.
+    if (stats.size > 100000000) {
+      console.log(
+        `[DB] Valid database found (${(stats.size / 1024 / 1024 / 1024).toFixed(
+          2
+        )} GB). Skipping download.`
+      );
+      return;
+    }
     console.log(
-      `[DB] Database already exists at ${DB_PATH}. Skipping download.`
+      `[DB] Found corrupted partial database (${stats.size} bytes). Deleting and redownloading...`
     );
-    return;
+    fs.unlinkSync(DB_PATH);
   }
 
   console.log(
-    `[DB] Database not found at ${DB_PATH}. Downloading 4.8GB from Hugging Face...`
+    `[DB] Downloading 4.8GB from Hugging Face... This will take a few minutes. DO NOT interrupt.`
   );
 
   const dir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  // 2. Download to a temporary file (Atomic Write)
+  const tmpPath = `${DB_PATH}.tmp`;
+  if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
 
   const res = await fetch(DOWNLOAD_URL);
   if (!res.ok) throw new Error(`Failed to fetch database: ${res.statusText}`);
   if (!res.body)
     throw new Error("No response body received from Hugging Face.");
 
-  const fileStream = fs.createWriteStream(DB_PATH);
+  const fileStream = fs.createWriteStream(tmpPath);
   await finished(Readable.fromWeb(res.body as any).pipe(fileStream));
-  console.log(`[DB] Download complete! Saved successfully to ${DB_PATH}`);
+
+  // 3. Rename to the real file ONLY when 100% fully downloaded
+  fs.renameSync(tmpPath, DB_PATH);
+  console.log(`[DB] Download 100% complete! Saved successfully to ${DB_PATH}`);
 }
 
 export async function getDb(): Promise<any> {
   if (global.__db) return global.__db;
 
-  // THE FIX: eval() makes it completely invisible to Turbopack during the build phase.
-  // It only executes at runtime when Next.js actually starts the server.
   if (!duckdb) {
     duckdb = typeof window === "undefined" ? eval("require('duckdb')") : null;
   }
 
-  await ensureDatabaseExists();
+  // Promise Lock: If a download is already happening, just wait for it.
+  if (!global.__dbInitPromise) {
+    global.__dbInitPromise = downloadDatabase()
+      .then(() => {
+        console.log(`[DB] Opening DuckDB connection...`);
+        global.__db = new duckdb.Database(DB_PATH, {
+          access_mode: "READ_ONLY",
+        });
+      })
+      .catch((err) => {
+        global.__dbInitPromise = undefined; // Reset lock if download fails
+        throw err;
+      });
+  }
 
-  console.log(`[DB] Opening DuckDB connection...`);
-  global.__db = new duckdb.Database(DB_PATH, { access_mode: "READ_ONLY" });
+  await global.__dbInitPromise;
   return global.__db;
 }
 
