@@ -5,15 +5,9 @@ import fs from "fs";
 import { Readable } from "stream";
 import { finished } from "stream/promises";
 
-// 1. We ONLY import the typescript types.
-// Turbopack ignores this completely because TS strips it out during the build.
-import type * as DuckDB from "duckdb";
-
-// 2. THE FIX: We split the string to completely blind Turbopack's aggressive static analyzer.
-// This prevents the "missing field `napi_versions`" build crash on Railway.
+// THE FIX: Fully stripped of DuckDB types, typed as 'any', and string split for Turbopack
 const pkgName = "duck" + "db";
-const duckdb: typeof DuckDB =
-  typeof window === "undefined" ? require(pkgName) : null;
+const duckdb: any = typeof window === "undefined" ? require(pkgName) : null;
 
 // Detect if we are running in Railway (production) or locally
 const IS_PROD = process.env.NODE_ENV === "production";
@@ -30,7 +24,7 @@ const DOWNLOAD_URL =
   "https://huggingface.co/datasets/Abuzariii/mrf-pittsburgh-duckdb/resolve/main/pittsburgh_standard_charge_details.duckdb";
 
 declare global {
-  var __db: DuckDB.Database | undefined;
+  var __db: any | undefined;
 }
 
 // Helper to download the massive file safely without blowing up RAM
@@ -66,7 +60,7 @@ async function ensureDatabaseExists() {
 }
 
 // Async initializer to guarantee the database is downloaded before queries run
-export async function getDb(): Promise<DuckDB.Database> {
+export async function getDb(): Promise<any> {
   if (global.__db) return global.__db;
 
   await ensureDatabaseExists();
