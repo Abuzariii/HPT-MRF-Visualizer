@@ -1,3 +1,4 @@
+// src/lib/db.ts
 import util from "util";
 import path from "path";
 import fs from "fs";
@@ -17,18 +18,14 @@ const DOWNLOAD_URL =
 
 declare global {
   var __db: any | undefined;
-  // This lock prevents race conditions during SSR
   var __dbInitPromise: Promise<void> | undefined;
 }
 
 let duckdb: any;
 
 async function downloadDatabase() {
-  // 1. Check if the file exists AND is the correct size
   if (fs.existsSync(DB_PATH)) {
     const stats = fs.statSync(DB_PATH);
-    // 4.8GB is roughly 5,153,960,755 bytes.
-    // If it's less than 100MB, it's a corrupted/aborted download from the previous crash.
     if (stats.size > 100000000) {
       console.log(
         `[DB] Valid database found (${(stats.size / 1024 / 1024 / 1024).toFixed(
@@ -44,13 +41,12 @@ async function downloadDatabase() {
   }
 
   console.log(
-    `[DB] Downloading 4.8GB from Hugging Face... This will take a few minutes. DO NOT interrupt.`
+    `[DB] Downloading database from Hugging Face... This will take a few minutes. DO NOT interrupt.`
   );
 
   const dir = path.dirname(DB_PATH);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
-  // 2. Download to a temporary file (Atomic Write)
   const tmpPath = `${DB_PATH}.tmp`;
   if (fs.existsSync(tmpPath)) fs.unlinkSync(tmpPath);
 
@@ -62,7 +58,6 @@ async function downloadDatabase() {
   const fileStream = fs.createWriteStream(tmpPath);
   await finished(Readable.fromWeb(res.body as any).pipe(fileStream));
 
-  // 3. Rename to the real file ONLY when 100% fully downloaded
   fs.renameSync(tmpPath, DB_PATH);
   console.log(`[DB] Download 100% complete! Saved successfully to ${DB_PATH}`);
 }
@@ -74,17 +69,31 @@ export async function getDb(): Promise<any> {
     duckdb = typeof window === "undefined" ? eval("require('duckdb')") : null;
   }
 
-  // Promise Lock: If a download is already happening, just wait for it.
   if (!global.__dbInitPromise) {
     global.__dbInitPromise = downloadDatabase()
       .then(() => {
         console.log(`[DB] Opening DuckDB connection...`);
-        global.__db = new duckdb.Database(DB_PATH, {
-          access_mode: "READ_ONLY",
+
+        // THE FIX: Wait for the C++ callback to confirm the file is fully mounted into memory
+        return new Promise<void>((resolve, reject) => {
+          const dbInstance = new duckdb.Database(
+            DB_PATH,
+            { access_mode: "READ_ONLY" },
+            (err: any) => {
+              if (err) {
+                console.error("[DB] Failed to open DuckDB:", err);
+                reject(err);
+              } else {
+                console.log("[DB] Connection established successfully!");
+                global.__db = dbInstance;
+                resolve();
+              }
+            }
+          );
         });
       })
       .catch((err) => {
-        global.__dbInitPromise = undefined; // Reset lock if download fails
+        global.__dbInitPromise = undefined;
         throw err;
       });
   }
