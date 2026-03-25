@@ -58,7 +58,6 @@ export default function PriceComparisonTable() {
     fetchData();
   }, [debouncedSearch, setting, payerType, page]);
 
-  // Reset page when filters change
   useEffect(() => setPage(1), [debouncedSearch, setting, payerType]);
 
   const handleExport = () => {
@@ -137,30 +136,37 @@ export default function PriceComparisonTable() {
           </div>
         )}
 
-        {/* Horizontal scroll enabled for wide tables */}
+        {/* Expanded min-width to accommodate all 17 columns comfortably */}
         <div className="border-y overflow-x-auto">
-          <Table className="min-w-[1200px]">
+          <Table className="min-w-600">
             <TableHeader className="bg-slate-50">
               <TableRow>
-                <TableHead className="w-[15%]">Hospital</TableHead>
-                <TableHead className="w-[20%]">Description</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead>Payer</TableHead>
-                <TableHead>Plan</TableHead>
-                <TableHead>Payer Type</TableHead>
-                <TableHead>Setting</TableHead>
-                <TableHead className="text-right">Cash Price</TableHead>
-                <TableHead className="text-right text-emerald-700">
+                <TableHead className="w-50">Hospital</TableHead>
+                <TableHead className="w-30">Location</TableHead>
+                <TableHead className="w-62.5">Description</TableHead>
+                <TableHead className="w-25">Code</TableHead>
+                <TableHead className="w-25">Setting</TableHead>
+                <TableHead className="w-30">Billing Class</TableHead>
+                <TableHead className="w-37.5">Payer</TableHead>
+                <TableHead className="w-37.5">Plan</TableHead>
+                <TableHead className="w-30">Payer Type</TableHead>
+                <TableHead className="text-right w-30">Gross Charge</TableHead>
+                <TableHead className="text-right w-30">Cash Price</TableHead>
+                <TableHead className="text-right w-30">Minimum</TableHead>
+                <TableHead className="text-right w-30">Maximum</TableHead>
+                <TableHead className="text-right w-30">Standard $</TableHead>
+                <TableHead className="text-right w-30">Estimated $</TableHead>
+                <TableHead className="text-right w-35 text-emerald-700 font-bold bg-emerald-50/50">
                   Negotiated Rate
                 </TableHead>
-                <TableHead>Methodology</TableHead>
+                <TableHead className="w-50">Methodology</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {data.length === 0 && !loading ? (
                 <TableRow>
                   <TableCell
-                    colSpan={10}
+                    colSpan={17}
                     className="h-32 text-center text-slate-500"
                   >
                     No matching procedures found.
@@ -173,44 +179,80 @@ export default function PriceComparisonTable() {
                     className="hover:bg-slate-50 text-xs md:text-sm"
                   >
                     <TableCell
-                      className="font-medium truncate max-w-[150px]"
+                      className="font-medium truncate max-w-50"
                       title={row.hospital_name}
                     >
-                      {row.hospital_name || "N/A"}
+                      {row.hospital_name || "--"}
                     </TableCell>
                     <TableCell
-                      className="truncate max-w-[200px]"
+                      className="truncate max-w-30"
+                      title={`${row.hospital_city}, ${row.hospital_state}`}
+                    >
+                      {row.hospital_city
+                        ? `${row.hospital_city}, ${row.hospital_state}`
+                        : "--"}
+                    </TableCell>
+                    <TableCell
+                      className="truncate max-w-62.5"
                       title={row.description}
                     >
-                      {row.description || "N/A"}
+                      {row.description || "--"}
                     </TableCell>
-                    <TableCell>{row.code || "--"}</TableCell>
+                    <TableCell className="truncate max-w-25" title={row.code}>
+                      {row.code || "--"}
+                    </TableCell>
+                    <TableCell className="capitalize">
+                      {row.setting || "--"}
+                    </TableCell>
                     <TableCell
-                      className="truncate max-w-[100px]"
+                      className="capitalize truncate max-w-30"
+                      title={row.billing_class}
+                    >
+                      {row.billing_class || "--"}
+                    </TableCell>
+                    <TableCell
+                      className="truncate max-w-37.5"
                       title={row.payer_name}
                     >
                       {row.payer_name || "--"}
                     </TableCell>
                     <TableCell
-                      className="truncate max-w-[100px]"
+                      className="truncate max-w-37.5"
                       title={row.plan_name}
                     >
                       {row.plan_name || "--"}
                     </TableCell>
-                    <TableCell className="capitalize">
+                    <TableCell
+                      className="capitalize truncate max-w-30"
+                      title={row.payer_type}
+                    >
                       {row.payer_type || "--"}
                     </TableCell>
-                    <TableCell className="capitalize">
-                      {row.setting || "--"}
+
+                    <TableCell className="text-right text-slate-600">
+                      {formatCurrency(row.gross_charge)}
                     </TableCell>
                     <TableCell className="text-right text-slate-600">
                       {formatCurrency(row.discounted_cash)}
                     </TableCell>
-                    <TableCell className="text-right text-emerald-700 font-bold">
+                    <TableCell className="text-right text-slate-600">
+                      {formatCurrency(row.minimum)}
+                    </TableCell>
+                    <TableCell className="text-right text-slate-600">
+                      {formatCurrency(row.maximum)}
+                    </TableCell>
+                    <TableCell className="text-right text-slate-600">
+                      {formatCurrency(row.standard_charge_dollar)}
+                    </TableCell>
+                    <TableCell className="text-right text-slate-600">
+                      {formatCurrency(row.estimated_amount)}
+                    </TableCell>
+                    <TableCell className="text-right text-emerald-700 font-bold bg-emerald-50/50">
                       {formatCurrency(row.negotiated_rate)}
                     </TableCell>
+
                     <TableCell
-                      className="truncate max-w-[120px]"
+                      className="truncate max-w-50"
                       title={row.methodology}
                     >
                       {row.methodology || "--"}
@@ -222,7 +264,7 @@ export default function PriceComparisonTable() {
           </Table>
         </div>
 
-        <div className="flex items-center justify-between p-4">
+        <div className="flex items-center justify-between p-4 border-t">
           <p className="text-sm text-slate-500">Showing top 15 results.</p>
           <div className="flex space-x-2">
             <Button

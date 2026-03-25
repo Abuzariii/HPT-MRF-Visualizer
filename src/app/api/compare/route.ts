@@ -20,26 +20,32 @@ export async function GET(request: Request) {
     let query = `
       SELECT 
         enriched_hospital_name as hospital_name,
+        enriched_hospital_city as hospital_city,
+        enriched_hospital_state as hospital_state,
         description, 
         CONCAT_WS(', ', NULLIF(cpt, ''), NULLIF(hcpcs, ''), NULLIF(ms_drg, '')) as code,
+        setting, 
+        billing_class,
         payer_name,
         plan_name,
         payer_group,
         payer_type,
-        setting, 
+        gross_charge,
         discounted_cash,
+        minimum,
+        maximum,
+        standard_charge_dollar,
+        estimated_amount,
         COALESCE(standard_charge_dollar, estimated_amount) as negotiated_rate,
         methodology
       FROM hospital_charges
       WHERE 1=1
     `;
 
-    // 1. Text Search
     if (safeQ) {
       query += ` AND (description ILIKE '%${safeQ}%' OR enriched_hospital_name ILIKE '%${safeQ}%' OR cpt ILIKE '%${safeQ}%')`;
     }
 
-    // 2. Dropdown Filters
     if (safeSetting !== "all") {
       query += ` AND setting ILIKE '${safeSetting}'`;
     }

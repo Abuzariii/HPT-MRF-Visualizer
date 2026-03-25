@@ -53,7 +53,7 @@ export default async function TransparencyPlatform() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-12">
-      <main className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-6">
+      <main className="max-w-400 mx-auto p-4 md:p-8 space-y-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             Healthcare Price Transparency
@@ -68,10 +68,10 @@ export default async function TransparencyPlatform() {
 
         {/* Layout Change: Chart top row, Table bottom row for maximum readability */}
         <div className="grid grid-cols-1 gap-6">
-          <div className="w-full h-[400px]">
+          <div className="w-full h-100">
             <ProcedureChart data={topProcedures} />
           </div>
-          <div className="w-full min-h-[600px]">
+          <div className="w-full min-h-150">
             <PriceComparisonTable />
           </div>
         </div>
