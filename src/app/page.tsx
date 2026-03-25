@@ -1,4 +1,3 @@
-// import { dbAll } from "@/lib/db";
 import { queryDb } from "@/lib/db";
 import KpiCards from "@/components/KpiCards";
 import ProcedureChart from "@/components/ProcedureChart";
@@ -53,25 +52,26 @@ export default async function TransparencyPlatform() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      <main className="max-w-400 mx-auto p-6 lg:p-10 space-y-8">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-12">
+      <main className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
             Healthcare Price Transparency
           </h1>
           <p className="text-slate-500 mt-1">
-            Empowering patients with clear, comparative hospital pricing.
+            Empowering patients to compare negotiated rates and cash prices
+            across facilities.
           </p>
         </div>
 
         <KpiCards stats={stats} settingsStats={settingsStats} />
 
-        {/* FIX: Hardcoded bracket heights instead of invalid Tailwind classes */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-auto xl:h-162.5">
-          <div className="xl:col-span-1 h-125 xl:h-full">
+        {/* Layout Change: Chart top row, Table bottom row for maximum readability */}
+        <div className="grid grid-cols-1 gap-6">
+          <div className="w-full h-[400px]">
             <ProcedureChart data={topProcedures} />
           </div>
-          <div className="xl:col-span-2 h-150 xl:h-full">
+          <div className="w-full min-h-[600px]">
             <PriceComparisonTable />
           </div>
         </div>

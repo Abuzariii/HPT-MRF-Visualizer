@@ -18,13 +18,15 @@ export interface SettingStat {
 }
 
 export interface ComparisonRecord {
-  description: string;
-  gross_charge: number | null;
-  discounted_cash: number | null;
-  minimum: number | null;
-  maximum: number | null;
-  setting: string;
   hospital_name: string;
-  hospital_city: string;
-  hospital_state: string;
+  description: string;
+  code: string; // Combined MS-DRG, CPT, HCPCS
+  payer_name: string;
+  plan_name: string;
+  payer_group: string;
+  payer_type: string;
+  setting: string;
+  discounted_cash: number | null;
+  negotiated_rate: number | null; // Standard charge dollar OR estimated amount
+  methodology: string;
 }
